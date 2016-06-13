@@ -135,6 +135,7 @@ class DListBox(urwid.ListBox):
         return super().render(size, focus)
 
     def clean(self):
+        """reset event most recently in focus"""
         if self._old_focus is not None:
             self.body[self._old_focus].contents[0][0].set_attr_map({None: 'date'})
 
@@ -146,7 +147,7 @@ class DListBox(urwid.ListBox):
             pass
         rval = self.body.update_by_date(day)
         self.body[self.focus_position].contents[0][0].set_attr_map({None: 'green'})
-        self.set_focus_valign('top')  # FIXME does not work
+        self.set_focus_valign('top')  # FIXME does not always work as expected
         self.clean()
         return rval
 
@@ -266,7 +267,6 @@ class DListBox(urwid.ListBox):
                 key = None
                 body = self.body[self.body.focus].current_event
 
-
         rval = super().keypress(size, key)
         self.clean()
         if self.parent._conf['view']['event_view_always_visible'] and self.body.current_event:
@@ -279,7 +279,6 @@ class DListBox(urwid.ListBox):
     @property
     def current_event(self):
         return self.body.current_event
-
 
     @property
     def current_date(self):
@@ -310,24 +309,22 @@ class DayWalker(urwid.SimpleFocusListWalker):
 
     def update_by_date(self, day):
         """make sure a DatePile for `day` exists, update it and bring it into focus"""
-        # TODO this function gets called much too often, investigate
+        # TODO this function gets called twice on every date change, not necessary but
+        # isn't very costly either
         item_no = None
-        updated = False
+
         if len(self) == 0:
             pile = self._get_events(day)
             self.append(pile)
             self._last_day = day
             self._first_day = day
             item_no = 0
-            updated = True
         while day < self[0].date:
             self._autoprepend()
             item_no = 0
-            updated = True
         while day > self[-1].date:
             self._autoextend()
             item_no = len(self) - 1
-            updated = True
         if item_no is None:
             item_no = (day - self[0].date).days
 
@@ -518,7 +515,10 @@ class EventColumn(urwid.WidgetWrap):
             original_end = event.end_local
 
         def update_colors(new_start, new_end, recurring=False):
-            # TODO also reset DatePiles
+            """reset colors in the calendar widget between min(new_start, original_start)"""
+            # TODO XXX also reset DatePiles
+            # TODO XXX support for recurring events, were more than start and
+            # end dates are affected
             if recurring:
                 min_date = self.pane.calendar.base_widget.walker.earliest_date
                 max_date = self.pane.calendar.base_widget.walker.latest_date
@@ -746,7 +746,6 @@ class EventEditor(urwid.WidgetWrap):
         ]), outermost=True)
         self._force_save = force_save
         urwid.WidgetWrap.__init__(self, self.pile)
-
 
     @property
     def title(self):  # Window title
